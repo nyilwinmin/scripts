@@ -1,0 +1,66 @@
+EXPORT TO Multiple_Curam_Login_Failures.csv OF DEL
+
+WITH FailureAttempts AS (
+  SELECT 
+    username, 
+    TIMEENTERED,
+    LOGINFAILURES,
+    LAG(TIMEENTERED) OVER (PARTITION BY username ORDER BY TIMEENTERED) AS prev_time
+  FROM DB2ADMIN.AUTHENTICATIONLOG
+  WHERE LOGINFAILURES > 0 -- Considering only failed login attempts
+  AND TIMEENTERED BETWEEN ((CURRENT DATE - (DAYOFWEEK(CURRENT DATE)-1)DAYS)-6 DAYS) AND (CURRENT DATE - (DAYOFWEEK(CURRENT DATE)-1)DAYS)
+),
+whithinOneMinute AS (
+  SELECT 
+    username, 
+    TIMEENTERED, 
+    prev_time, 
+    LOGINFAILURES,
+    LAG(LOGINFAILURES) OVER (PARTITION BY username ORDER BY TIMEENTERED) AS prev_failed_login
+  FROM FailureAttempts
+  WHERE TIMEENTERED - prev_time <= 60 -- To filter attempts within 1 minute
+),
+consecutivefailures AS (
+SELECT 
+  username, 
+  TIMEENTERED, 
+  prev_time, 
+  LOGINFAILURES,
+  ROW_NUMBER() OVER (PARTITION BY username ORDER BY TIMEENTERED) AS rn
+FROM whithinOneMinute
+WHERE LOGINFAILURES - prev_failed_login = 1
+AND username IN (
+  SELECT username
+  FROM whithinOneMinute
+  GROUP BY username
+  HAVING COUNT(*) > 5
+)
+)
+SELECT 
+  first_row_per_user.TIMEENTERED "Log Source Date",
+  'Five(5) Multiple Curam Login Failure' "Event Name",
+  first_row_per_user.username,
+  USERS.FULLNAME,
+  EMAILADDRESS.EMAILADDRESS,
+  (SELECT TRIM(L.NAME) 
+  FROM POSITIONHOLDERLINK PHL 
+  INNER JOIN POSITIONLOCATIONLINK PLL ON PLL.POSITIONID = PHL.POSITIONID 
+  INNER JOIN LOCATION L ON L.LOCATIONID = PLL.LOCATIONID 
+  WHERE PHL.USERNAME = first_row_per_user.USERNAME 
+  AND PHL.RECORDSTATUS = 'RST1' 
+  ORDER BY L.NAME FETCH FIRST 1 ROWS ONLY) "User Location",
+  (SELECT EMAILADDRESS.EMAILADDRESS
+  FROM USERS u1
+  JOIN USERS u2 ON u1.LOCATIONID = u2.LOCATIONID
+  JOIN EMAILADDRESS ON u2.BUSINESSEMAILID = EMAILADDRESS.EMAILADDRESSID
+  WHERE u1.USERNAME = first_row_per_user.USERNAME
+  AND u2.ROLENAME LIKE '%MANAGER%'
+  AND u2.LASTSUCCESSLOGIN IS NOT NULL
+  ORDER BY u2.LASTSUCCESSLOGIN DESC
+  FETCH FIRST 1 ROWS ONLY) "User Manager Email"
+FROM consecutivefailures AS first_row_per_user
+JOIN USERS ON first_row_per_user.username = USERS.username
+LEFT JOIN EMAILADDRESS ON EMAILADDRESS.EMAILADDRESSID = USERS.BUSINESSEMAILID 
+WHERE first_row_per_user.rn = 1;
+;
+

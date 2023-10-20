@@ -1,0 +1,150 @@
+DB2 provides different ways of monitoring applications. It includes event monitors, SQL-based snapshots, administrative views, monitoring functions, monitoring routines, and so on. DB2 9.7 introduced a number of monitoring functions. These functions have names prefixed with MON_. These functions are very light-weight when compared to snapshot monitor table functions and hence are recommended for monitoring. These new monitoring functions also report many new monitoring elements that give time-spent breakdown information that allows us to clearly identify where an SQL statement is spending most of the time.
+
+The information returned from these monitoring functions represents the total metrics from database start. In other words, these metrics are always increasing. To actively monitor the application behavior, we should examine the difference between two successive outputs.
+
+…
+
+How to do it…
+
+There are different aspects of monitoring. Whenever we observe any slowdown in application performance, we need handy scripts that can be used to monitor and identify problems. This recipe provides various monitoring tips and commands that can be used for such monitoring requirements.
+
+    Monitoring current SQL statements: The MON_CURRENT_SQL administrative view can be used to get information on all SQL statements that are currently running in the database. This includes both static and dynamic SQL statements. This is very useful to identify long running queries and isolate problematic queries.
+
+SELECT APPLICATION_HANDLE, APPLICATION_NAME, ELAPSED_TIME_SEC, ACTIVITY_STATE, ACTIVITY_TYPE, TOTAL_CPU_TIME, ROWS_READ, ROWS_RETURNED, QUERY_COST_ESTIMATE, DIRECT_READS, DIRECT_WRITES, SUBSTR(STMT_TEXT, 1, 500) FROM SYSIBMADM.MON_CURRENT_SQL 
+
+How to do it...
+
+    Monitoring package cache: The MON_PKG_CACHE_SUMMARY administrative view can be used to get key information on static and dynamic SQL statements present in a package cache. The information available in this administrative view is aggregated. This means that if one SQL statement has been executed a number of times then the information returned will be the total of all monitor elements.
+
+SELECT SECTION_TYPE,
+EXECUTABLE_ID,
+NUM_COORD_EXEC,
+NUM_COORD_EXEC_WITH_METRICS,
+TOTAL_STMT_EXEC_TIME,
+AVG_STMT_EXEC_TIME,
+TOTAL_CPU_TIME,
+AVG_CPU_TIME,
+TOTAL_LOCK_WAIT_TIME,
+AVG_LOCK_WAIT_TIME,
+TOTAL_IO_WAIT_TIME,
+AVG_IO_WAIT_TIME,
+PREP_TIME,
+ROWS_READ_PER_ROWS_RETURNED,
+SUBSTR(STMT_TEXT, 1, 100)
+FROM SYSIBMADM.MON_PKG_CACHE_SUMMARY
+ORDER BY TOTAL_CPU_TIME DESC;
+
+How to do it...
+
+    Monitoring lock waits: The MON_LOCKWAITS administrative view can be used to retrieve information on all applications that are waiting for locks. This can be very useful in identifying problems related to locks.
+
+SELECT LOCK_NAME,
+LOCK_WAIT_ELAPSED_TIME,
+TABSCHEMA,
+TABNAME,
+DATA_PARTITION_ID,
+LOCK_MODE,
+LOCK_CURRENT_MODE,
+LOCK_MODE_REQUESTED,
+REQ_APPLICATION_HANDLE,
+REQ_AGENT_TID,
+REQ_MEMBER,
+REQ_USERID,
+SUBSTR(REQ_STMT_TEXT, 1, 100),
+HLD_APPLICATION_HANDLE,
+HLD_MEMBER,
+HLD_UERSID,
+SUBSTR(HLD_CURRENT_STMT_TEXT, 1, 100)
+FROM SYSIBMADM.MON_LOCKWAITS;
+
+How to do it...
+
+    Monitoring current locks in the database: MON_GET_LOCKS is a table function that can be used to retrieve information on all the locks currently acquired in the database.
+
+SELECT APPLICATION_HANDLE,
+LOCK_OBJECT_TYPE_ID,
+LOCK_OBJECT_TYPE,
+LOCK_MODE,
+LOCK_STATUS,
+LOCK_ATTRIBUTES
+FROM TABLE (MON_GET_LOCKS(NULL, -2));
+
+How to do it...
+
+    Monitoring activity on a table: MON_GET_TABLE is a table function that can be used to retrieve information on all activities happening on a table. These activities include the total number of reads, writes, and so on. The gain of the result set is a table in the database. If the table is range partitioned, then it will have one row for each partition. The function has information only about tables that have been accessed since the database was activated.
+
+SELECT TABSCHEMA,
+TABNAME,
+TAB_TYPE,
+TABLE_SCANS,
+ROWS_READ,
+ROWS_INSERTED,
+ROWS_UPDATED,
+ROWS_DELETED,
+OVERFLOW_ACCESSES,
+OVERFLOW_CREATES,
+PAGE_REORGS
+FROM TABLE(MON_GET_TABLE('','',-2)) AS t
+WHERE TABSCHEMA='SANJU';
+
+How to do it...
+
+    Monitoring connection activities: The MON_GET_CONNECTION table function can be used to get the activity information on individual database connections. The information returned by this table function is an aggregated result. Metrics collected by this table function are periodically aggregated during the execution of SQL statements. Hence the metrics are always increasing. If we want to get the connection activity during a time interval then we need to analyze the difference between consecutive results. The function returns one row per database connection.
+
+    The table function returns different detailed metrics for all activities. The following SQL statements return different wait times that different connections have spent:
+
+SELECT APPLICATION_HANDLE, AGENT_WAIT_TIME, POOL_READ_TIME,
+POOL_WRITE_TIME, DIRECT_READ_TIME, DIRECT_WRITE_TIME,
+CLIENT_IDLE_WAIT_TIME, LOCK_WAIT_TIME, TOTAL_CPU_TIME,
+TOTAL_WAIT_TIME, TOTAL_SECTION_SORT_TIME,
+TOTAL_SECTION_SORT_PROC_TIME, TOTAL_COMPILE_TIME,
+TOTAL_COMPILE_PROC_TIME, TOTAL_IMPLICIT_COMPILE_TIME,
+TOTAL_IMPLICIT_COMPILE_PROC_TIME, TOTAL_SECTION_TIME,
+TOTAL_SECTION_PROC_TIME, TOTAL_ROUTINE_TIME, TOTAL_COMMIT_TIME,
+TOTAL_COMMIT_PROC_TIME, TOTAL_ROLLBACK_TIME,
+TOTAL_ROLLBACK_PROC_TIME, TOTAL_LOAD_TIME, TOTAL_LOAD_PROC_TIME
+FROM TABLE(MON_GET_CONNECTION(cast(NULL as bigint), -2)) AS t;
+
+How to do it...
+
+    The following SQL statement returns read and write metrics for each connection:
+
+SELECT APPLICATION_HANDLE, POOL_DATA_L_READS, POOL_INDEX_L_READS,
+POOL_DATA_P_READS, POOL_INDEX_P_READS, POOL_DATA_WRITES,
+POOL_INDEX_WRITES, DIRECT_READS, DIRECT_WRITES, DIRECT_READ_REQS,
+DIRECT_WRITE_REQS, ROWS_MODIFIED, ROWS_READ, ROWS_RETURNED
+FROM TABLE(MON_GET_CONNECTION(cast(NULL as bigint), -2)) AS t;
+
+How to do it...
+
+    The following SQL statement returns various activity details for each connection:
+
+SELECT APPLICATION_HANDLE, DEADLOCKS, LOCK_ESCALS, LOCK_TIMEOUTS,
+LOCK_WAITS, TOTAL_SECTION_SORTS, TOTAL_SORTS, POST_THRESHOLD_SORTS,
+POST_SHRTHRESHOLD_SORTS, SORT_OVERFLOWS, TOTAL_COMPILATIONS,
+TOTAL_IMPLICIT_COMPILATIONS, TOTAL_APP_SECTION_EXECUTIONS,
+TOTAL_ROUTINE_INVOCATIONS, TOTAL_APP_COMMITS, INT_COMMITS,
+TOTAL_APP_ROLLBACKS, INT_ROLLBACKS
+FROM TABLE(MON_GET_CONNECTION(cast(NULL as bigint), -2)) AS t;
+
+How to do it...
+
+    Monitoring database activities: The MON_DB_SUMMARY administrative view provides summary information on all activities happening in the database. The information available in this administrative view is aggregated over a period of time. This is very useful to get high-level information on database activities.
+
+SELECT TOTAL_APP_COMMITS, TOTAL_APP_ROLLBACKS, APP_RQSTS_COMPLETED_TOTAL,
+AVG_RQST_CPU_TIME, ROUTINE_TIME_RQST_PERCENT,
+RQST_WAIT_TIME_PERCENT, ACT_WAIT_TIME_PERCENT,
+LOCK_WAIT_TIME_PERCENT, AGENT_WAIT_TIME_PERCENT,
+NETWORK_WAIT_TIME_PERCENT, SECTION_PROC_TIME_PERCENT,
+SECTION_SORT_PROC_TIME_PERCENT, COMPILE_PROC_TIME_PERCENT,
+TRANSACT_END_PROC_TIME_PERCENT, UTILS_PROC_TIME_PERCENT,
+AVG_LOCK_WAITS_PER_ACT, AVG_LOCK_TIMEOUTS_PER_ACT,
+AVG_DEADLOCKS_PER_ACT, AVG_LOCK_ESCALS_PER_ACT,
+ROWS_READ_PER_ROWS_RETURNED, TOTAL_BP_HIT_RATIO_PERCENT
+FROM SYSIBMADM.MON_DB_SUMMARY;
+
+How to do it...
+
+    Monitoring connection summary: The MON_CONNECTION_SUMMARY administrative view provides summary information on all connections. This provides a high-level overview of connection metrics that are aggregated over a period of time.
+
+SELECT APPLICATION_HANDLE, TOTAL_APP_COMMITS, TOTAL_APP_ROLLBACKS, ACT_COMPLETED_TOTAL, APP_RQSTS_COMPLETED_TOTAL, AVG_RQST_CPU_TIME, ROUTINE_TIME_RQST_PERCENT, RQST_WAIT_TIME_PERCENT, ACT_WAIT_TIME_PERCENT, IO_WAIT_TIME_PERCENT, LOCK_WAIT_TIME_PERCENT, AGENT_WAIT_TIME_PERCENT, NETWORK_WAIT_TIME_PERCENT, SECTION_PROC_TIME_PERCENT, SECTION_SORT_PROC_TIME_PERCENT, COMPILE_PROC_TIME_PERCENT, TRANSACT_END_PROC_TIME_PERCENT, UTILS_PROC_TIME_PERCENT, AVG_LOCK_WAITS_PER_ACT, AVG_LOCK_TIMEOUTS_PER_ACT, AVG_DEADLOCKS_PER_ACT, AVG_LOCK_ESCALS_PER_ACT, ROWS_READ_PER_ROWS_RETURNED, TOTAL_BP_HIT_RATIO_PERCENT FROM SYSIBMADM.MON_CONNECTION_SUMMARY
