@@ -44,7 +44,7 @@ sudo -u ec2-user -i /bin/bash -c "${apigw_path}/deploy.sh prd ssnet_devops intra
 }
 
 #DEVOPS
-if [ $current_host == ip-100-121-17-114 ]
+if [ $current_host == ##### ]
 	then 
 	echo 'devops'
 		
@@ -86,21 +86,21 @@ if [ $current_host == ip-100-121-17-114 ]
 	deploy_apigw
 
 #web1
-elif [ $current_host == ip-10-211-103-14 ]
+elif [ $current_host == ###### ]
 	then
 	echo 'web1'
 	sudo sed -i -E 's|[0-9]+ [A-Za-z]+ [0-9]{4}|'"$(date +'%d %B %Y')"'|g' /home/saadmin/maintenancePage.html
 	sudo /app/scripts/SetMaintenancePage.sh $updown_var
 
 #web2
-elif [ $current_host == ip-10-211-103-96 ]
+elif [ $current_host == ###### ]
 	then
 	echo 'web2'
 	sudo sed -i -E 's|[0-9]+ [A-Za-z]+ [0-9]{4}|'"$(date +'%d %B %Y')"'|g' /home/saadmin/maintenancePage.html
 	sudo /app/scripts/SetMaintenancePage.sh $updown_var
 
 #intra01
-elif [ $current_host == ip-10-211-118-58 ]
+elif [ $current_host == ###### ]
 then
 	if [ $truefalse_var = 'true' ]
 	then
@@ -117,7 +117,7 @@ then
 	fi
 
 #intra02
-elif [ $current_host == ip-10-211-118-71 ]
+elif [ $current_host == ###### ]
 then
 	if [ $truefalse_var = 'true' ]
 	then
@@ -134,7 +134,7 @@ then
 	fi
 
 #inter01
-elif [ $current_host == ip-10-211-118-45 ]
+elif [ $current_host == ###### ]
 then
 	if [ $truefalse_var = 'true' ]
 	then
@@ -151,7 +151,7 @@ then
 	fi
 
 #inter02
-elif [ $current_host == ip-10-211-118-112 ]
+elif [ $current_host == ###### ]
 then
 	if [ $truefalse_var = 'true' ]
 	then
